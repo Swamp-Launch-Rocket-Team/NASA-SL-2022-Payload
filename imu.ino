@@ -75,15 +75,18 @@ void loop(void)
   bno.getEvent(&accelerometerData, Adafruit_BNO055::VECTOR_ACCELEROMETER);
   bno.getEvent(&gravityData, Adafruit_BNO055::VECTOR_GRAVITY);
 
-  myFile = SD.open("data.csv, FILE_WRITE");
+  File myFile = SD.open("data.csv", FILE_WRITE);
   myFile.println(millis());
+  Serial.println(millis());
   
-  printEvent(&orientationData);
-  printEvent(&angVelocityData);
-  printEvent(&linearAccelData);
-  printEvent(&magnetometerData);
-  printEvent(&accelerometerData);
-  printEvent(&gravityData);
+  printEvent(&orientationData, myFile);
+  printEvent(&angVelocityData, myFile);
+  printEvent(&linearAccelData, myFile);
+  printEvent(&magnetometerData, myFile);
+  printEvent(&accelerometerData, myFile);
+  printEvent(&gravityData, myFile);
+
+  myFile.close();
 
   int8_t boardTemp = bno.getTemp();
   //myFile.println();
@@ -125,55 +128,73 @@ void loop(void)
   delay(BNO055_SAMPLERATE_DELAY_MS);
 }
 
-void printEvent(sensors_event_t* event) {
-  File myFile = SD.open("data.csv", FILE_WRITE);
+void printEvent(sensors_event_t* event, File myFile) {
+  //File myFile = SD.open("data.csv", FILE_WRITE);
   double x = -1000000, y = -1000000 , z = -1000000; //dumb values, easy to spot problem
   if (event->type == SENSOR_TYPE_ACCELEROMETER) {
-    //myFile.print("Accl:");
+    myFile.print("Accl,");
+    Serial.print("Accl,");
     x = event->acceleration.x;
     y = event->acceleration.y;
     z = event->acceleration.z;
   }
   else if (event->type == SENSOR_TYPE_ORIENTATION) {
-    //myFile.print("Orient:");
+    myFile.print("Orient,");
+    Serial.print("Orient,");
     x = event->orientation.x;
     y = event->orientation.y;
     z = event->orientation.z;
   }
   else if (event->type == SENSOR_TYPE_MAGNETIC_FIELD) {
-    //myFile.print("Mag:");
+    myFile.print("Mag,");
+    Serial.print("Mag,");
     x = event->magnetic.x;
     y = event->magnetic.y;
     z = event->magnetic.z;
   }
   else if (event->type == SENSOR_TYPE_GYROSCOPE) {
-    //myFile.print("Gyro:");
+    myFile.print("Gyro,");
+    Serial.print("Gyro,");
     x = event->gyro.x;
     y = event->gyro.y;
     z = event->gyro.z;
   }
   else if (event->type == SENSOR_TYPE_ROTATION_VECTOR) {
-    //myFile.print("Rot:");
+    myFile.print("Rot,");
+    Serial.print("Rot,");
     x = event->gyro.x;
     y = event->gyro.y;
     z = event->gyro.z;
   }
   else if (event->type == SENSOR_TYPE_LINEAR_ACCELERATION) {
-    //myFile.print("Linear:");
+    myFile.print("Linear,");
+    Serial.print("Linear,");
     x = event->acceleration.x;
     y = event->acceleration.y;
     z = event->acceleration.z;
   }
   else if (event->type == SENSOR_TYPE_GRAVITY) {
-    //myFile.print("Gravity:");
+    myFile.print("Gravity,");
+    Serial.print("Gravity,");
     x = event->acceleration.x;
     y = event->acceleration.y;
     z = event->acceleration.z;
   }
   else {
-    //myFile.print("Unk:");
+    myFile.print("Unk,");
+    Serial.print("Unk,");
   }
 
+  //myFile.print("\tx= ");
+  Serial.print(x);
+  Serial.print(",");
+  //myFile.print(" |\ty= ");
+  Serial.print(y);
+  Serial.print(",");
+  //myFile.print(" |\tz= ");
+  Serial.print(z);
+  Serial.println();
+  
   //myFile.print("\tx= ");
   myFile.print(x);
   myFile.print(",");
@@ -181,7 +202,6 @@ void printEvent(sensors_event_t* event) {
   myFile.print(y);
   myFile.print(",");
   //myFile.print(" |\tz= ");
-  myFile.println(z);
-
-  myFile.close();
+  myFile.print(z);
+  myFile.println();
 }

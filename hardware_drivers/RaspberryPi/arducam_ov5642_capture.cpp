@@ -17,7 +17,7 @@
 #define OV5642_CHIPID_LOW 0x300b
 #define OV5642_MAX_FIFO_SIZE		0x7FFFFF		//8MByte
 #define BUF_SIZE 4096
-#define CAM1_CS 5
+#define CAM1_CS 21 //Make sure wiringpi is updated to 2.52 and use the pinout for that version
 
 #define VSYNC_LEVEL_MASK   		0x02  //0 = High active , 		1 = Low active
 uint8_t buf[BUF_SIZE];
@@ -31,20 +31,20 @@ void setup()
     wiring_init();
     pinMode(CAM1_CS, OUTPUT);
     
-    printf("Forcing CS low\n");
+    /*printf("Forcing CS low\n");
     digitalWrite(CAM1_CS, LOW);//Testing CS_LOW only
     printf("Forcing CS low done\n");
-    while(true){}; //Testing CS_LOW only
+    while(true){}; //Testing CS_LOW only*/
     
     // Check if the ArduCAM SPI bus is OK
     myCAM.write_reg(ARDUCHIP_TEST1, 0x55);
     temp = myCAM.read_reg(ARDUCHIP_TEST1);
     //printf("temp=%x\n",temp);
-    while(temp != 0x55) {
+    if(temp != 0x55) {
         printf("SPI interface error!\n");
-        //exit(EXIT_FAILURE);
-	myCAM.write_reg(ARDUCHIP_TEST1, 0x55);
-    temp = myCAM.read_reg(ARDUCHIP_TEST1);
+        exit(EXIT_FAILURE);
+	//myCAM.write_reg(ARDUCHIP_TEST1, 0x55);
+    //temp = myCAM.read_reg(ARDUCHIP_TEST1);
     }  
     // Change MCU mode
     myCAM.write_reg(ARDUCHIP_MODE, 0x00); 

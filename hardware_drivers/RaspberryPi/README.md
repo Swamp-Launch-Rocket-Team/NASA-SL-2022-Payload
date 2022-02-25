@@ -17,6 +17,14 @@ sudo apt-get install python-smbus <br>
 cd /home/pi/ArduCAM/example/RaspberryPi <br>
 sudo make <br>
 
+##3.5 Update wiringpi to 2.52
+cd /tmp
+wget https://project-downloads.drogon.net/wiringpi-latest.deb
+sudo dpkg -i wiringpi-latest.deb
+
+check version with gpio -v
+check pinout with gpio readall
+
 ## 4. Run the examples
 Examples to run the demo code, using different executable files for different camera models.<br>
 sudo ./ov2640_capture -c test.jpg 320x240 <br>

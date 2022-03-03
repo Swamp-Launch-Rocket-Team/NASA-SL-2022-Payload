@@ -2,8 +2,13 @@
 
 using namespace std;
 
+#define RESET 3
+#define CHIP_SELECT 4
+#define DATA_READY 5
+#define SYNC 6
+
 #define CHANNEL 0
-#define BAUDRATE 921600 // Max SCLK is 1 MHz when using burst reads
+#define BAUDRATE 976000 // Max SCLK is 1 MHz when using burst reads
 // #define WRITE 1
 // #define READ 0
 
@@ -34,36 +39,61 @@ const float GYRO_SCALER = 0.0610351562; // 2000 / 2^15
 // 	return buffer;
 // }
 
-static uint16_t IMU_SPI_read(uint8_t addr)
+uint16_t IMU_SPI_read(uint8_t addr)
 {
+	digitalWrite(CHIP_SELECT, 0);
 	uint8_t buffer[4];
 	// buffer[0]: R/W, A6-A0
 	// buffer[1]: D7-D0, don't care on read
 	buffer[0] = ~(1 << 7) & addr;
 	wiringPiSPIDataRW(CHANNEL, buffer, 4);
 	return buffer[2] << 7 | buffer[3];
+	digitalWrite(CHIP_SELECT, 1);
 }
 
 static void IMU_SPI_write(uint8_t addr, uint8_t data)
 {
+	digitalWrite(CHIP_SELECT, 0);
 	uint8_t buffer[2];
 	// buffer[0]: R/W, A6-A0
 	// buffer[1]: D7-D0
 	buffer[0] = 1 << 7 | addr;
 	buffer[1] = data;
 	wiringPiSPIDataRW(CHANNEL, buffer, 2);
+	digitalWrite(CHIP_SELECT, 1);
+}
+
+void IMU_HW_reset()
+{
+	cout << "Resetting" << endl;
+	digitalWrite(RESET, 0);
+	timespec  req, rem;
+	req.tv_nsec = 2e8;
+	req.tv_sec = 0;
+	while(nanosleep(&req, &rem) == -1)
+		req = rem;
+	digitalWrite(RESET, 1);
 }
 
 void IMU_setup()
 {
 	int fd, result;
 	unsigned short buffer;
-	cout << "Initializing" << endl ;
+
+	// Configure pins
+	pinMode(RESET, OUTPUT);
+	pinMode(CHIP_SELECT, OUTPUT);
+	pinMode(DATA_READY, INPUT);
+	pinMode(SYNC, OUTPUT);
+
+	IMU_HW_reset();
+
+	cout << "Initializing SPI" << endl;
 
 	// Configure the interface.
 	// CHANNEL insicates chip select,
 	// 500000 indicates bus speed.
-	fd = wiringPiSPISetup(CHANNEL, BAUDRATE);
+	fd = wiringPiSPISetupMode(CHANNEL, BAUDRATE, 3);
 
 	cout << "Init result: " << fd << endl;
 
@@ -93,17 +123,41 @@ void IMU_calibrate()
 imu_data_t IMU_read(){
 	imu_data_t imu_data;
 
-	// Burst Read
+	// Define burst read buffer
 	uint16_t buffer[11];
 	buffer[0] = BURST_READ_DIN;
 	memset(buffer+1, 0, sizeof(uint16_t)*10);
+
+	// Poll for data ready (busy wait for now)
+	// while(digitalRead(DATA_READY) == 0)
+	// {
+	// 	timespec req, rem;
+	// 	req.tv_nsec = 100;
+	// 	req.tv_sec = 0;
+	// 	nanosleep(&req, &rem);
+	// }
+
+	// Burst Read
+	digitalWrite(CHIP_SELECT, 0);
 	wiringPiSPIDataRW(CHANNEL, (uint8_t*)buffer, 22);
+	digitalWrite(CHIP_SELECT, 1);
 
 	// TODO: Check DIAG_STAT and Checksum for error handling
 	uint16_t DIAG_STAT = buffer[BURST_READ_DIAG_STAT];
 	uint16_t TEMP_OUT = buffer[BURST_READ_TEMP_OUT];
 	uint16_t DATA_CNTR = buffer[BURST_READ_DATA_CNTR];
-	
+
+	cout << "DIAG_STAT:\t" << buffer[BURST_READ_DIAG_STAT] << endl;
+	cout << "X_GYRO_OUT:\t" << buffer[BURST_READ_X_GYRO_OUT] << endl;
+	cout << "Y_GYRO_OUT:\t" << buffer[BURST_READ_Y_GYRO_OUT] << endl;
+	cout << "Z_GYRO_OUT:\t" << buffer[BURST_READ_Z_GYRO_OUT] << endl;
+	cout << "X_ACCL_OUT:\t" << buffer[BURST_READ_X_ACCL_OUT] << endl;
+	cout << "Y_ACCL_OUT:\t" << buffer[BURST_READ_Y_ACCL_OUT] << endl;
+	cout << "Z_ACCL_OUT:\t" << buffer[BURST_READ_Z_ACCL_OUT] << endl;
+	cout << "TEMP_OUT:\t" << buffer[BURST_READ_TEMP_OUT] << endl;
+	cout << "DATA_CNTR:\t" << buffer[BURST_READ_DATA_CNTR] << endl;
+	cout << "Checksum:\t" << buffer[BURST_READ_CHECKSUM] << endl;
+
 	// Data is signed and converted to a float-point value in real-world units
 	imu_data.accel.x = accel_format((int16_t)buffer[BURST_READ_X_ACCL_OUT]);
 	imu_data.accel.y = accel_format((int16_t)buffer[BURST_READ_Y_ACCL_OUT]);

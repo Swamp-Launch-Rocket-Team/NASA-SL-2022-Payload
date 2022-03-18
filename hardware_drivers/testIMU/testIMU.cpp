@@ -17,20 +17,24 @@ int main()
 	while(nanosleep(&req, &rem) == -1)
 		req = rem;
 
-    // imu_data_t data = IMU_read();
+    while(1)
+    {
+        // uint16_t prodID = IMU_SPI_read(0x72);
+        // printf("0x%X\n", prodID);
+        imu_data_t data = IMU_read();
 
-    // cout << "\nACCEL" << endl;
-    // cout << "\tX: " << data.accel.x << endl;
-    // cout << "\tY: " << data.accel.y << endl;
-    // cout << "\tZ: " << data.accel.z << endl;
-    // cout << "GYRO" << endl;
-    // cout << "\tX: " << data.gyro.x << endl;
-    // cout << "\tY: " << data.gyro.y << endl;
-    // cout << "\tZ: " << data.gyro.z << endl;
+        cout << "\nACCEL" << endl;
+        cout << "\tX: " << data.accel.x << endl;
+        cout << "\tY: " << data.accel.y << endl;
+        cout << "\tZ: " << data.accel.z << endl;
+        cout << "GYRO" << endl;
+        cout << "\tX: " << data.gyro.x << endl;
+        cout << "\tY: " << data.gyro.y << endl;
+        cout << "\tZ: " << data.gyro.z << endl;
 
-    uint16_t z_accel = IMU_SPI_read(0x1A);
-
-    cout << z_accel << endl;
+        std::string s;
+        std::getline(cin, s);
+    }
 
     return 0;
 }

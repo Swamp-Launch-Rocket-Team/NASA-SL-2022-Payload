@@ -8,14 +8,19 @@ using namespace std;
 #define SYNC 6
 
 #define CHANNEL 0
-#define BAUDRATE 976000 // Max SCLK is 1 MHz when using burst reads
-// #define WRITE 1
-// #define READ 0
+#define BAUDRATE 488000 // Max SCLK is 1 MHz when using burst reads
 
 #define MSC_CTRL_ADDR 0x60
 #define GLOB_CMD_ADDR 0x68
 
-#define BURST_READ_DIN 0x6800
+#define X_ACCL_OUT 0x12
+#define Y_ACCL_OUT 0x16
+#define Z_ACCL_OUT 0x1A
+#define X_GYRO_OUT 0x06
+#define Y_GYRO_OUT 0x0A
+#define Z_GYRO_OUT 0x0E
+
+#define BURST_READ_DIN 0x68
 #define BURST_READ_DIAG_STAT 1
 #define BURST_READ_X_GYRO_OUT 2
 #define BURST_READ_Y_GYRO_OUT 3
@@ -27,28 +32,28 @@ using namespace std;
 #define BURST_READ_DATA_CNTR 9
 #define BURST_READ_CHECKSUM 10
 
-const float ACCEL_SCALER = 0.00122070312; // 40 / 2^15
-const float GYRO_SCALER = 0.0610351562; // 2000 / 2^15
-
-// static uint16_t SPI_RW_buffer_gen(uint8_t RW, uint8_t addr, uint8_t data)
-// {
-// 	unsigned short buffer;
-// 	buffer = RW << 15;
-// 	buffer |= addr << 8;
-// 	buffer |= data;
-// 	return buffer;
-// }
+const double ACCEL_SCALER = 0.01197094726; // 40 * 9.8066 / 2^15
+const double GYRO_SCALER = 0.00106526443; // 2000 * pi / 180 / 2^15
 
 uint16_t IMU_SPI_read(uint8_t addr)
 {
-	digitalWrite(CHIP_SELECT, 0);
 	uint8_t buffer[4];
 	// buffer[0]: R/W, A6-A0
 	// buffer[1]: D7-D0, don't care on read
 	buffer[0] = ~(1 << 7) & addr;
-	wiringPiSPIDataRW(CHANNEL, buffer, 4);
-	return buffer[2] << 7 | buffer[3];
+	memset(buffer+1, 0, sizeof(uint8_t) * 3);
+	digitalWrite(CHIP_SELECT, 0);
+	wiringPiSPIDataRW(CHANNEL, buffer, 2);
 	digitalWrite(CHIP_SELECT, 1);
+	timespec req, rem;
+	req.tv_nsec = 16000;
+	req.tv_sec = 0;
+	while(nanosleep(&req, &rem) == -1)
+		req = rem;
+	digitalWrite(CHIP_SELECT, 0);
+	wiringPiSPIDataRW(CHANNEL, buffer+2, 2);
+	digitalWrite(CHIP_SELECT, 1);
+	return buffer[2] << 8 | buffer[3];
 }
 
 static void IMU_SPI_write(uint8_t addr, uint8_t data)
@@ -120,7 +125,62 @@ void IMU_calibrate()
 	IMU_SPI_write(GLOB_CMD_ADDR, 0x01);
 }
 
-imu_data_t IMU_read(){
+imu_data_t IMU_read()
+{
+	imu_data_t imu_data;
+
+	uint8_t buffer[14];
+	buffer[0] = (~(1 << 7) & X_ACCL_OUT);
+	buffer[1] = 0;
+	buffer[2] = (~(1 << 7) & Y_ACCL_OUT);
+	buffer[3] = 0;
+	buffer[4] = (~(1 << 7) & Z_ACCL_OUT);
+	buffer[6] = 0;
+	buffer[6] = (~(1 << 7) & X_GYRO_OUT);
+	buffer[7] = 0;
+	buffer[8] = (~(1 << 7) & Y_GYRO_OUT);
+	buffer[9] = 0;
+	buffer[10] = (~(1 << 7) & Z_GYRO_OUT);
+	buffer[11] = 0;
+	buffer[12] = 0;
+	buffer[13] = 0;
+
+	for(int transferNo = 0; transferNo < 7; transferNo++)
+	{
+		digitalWrite(CHIP_SELECT, 0);
+		wiringPiSPIDataRW(CHANNEL, buffer + 2 * transferNo, 2);
+		digitalWrite(CHIP_SELECT, 1);
+		if(transferNo != 6)
+		{
+			timespec req, rem;
+			req.tv_nsec = 16000;
+			req.tv_sec = 0;
+			while(nanosleep(&req, &rem) == -1)
+				req = rem;
+		}
+	}
+
+	for(int i = 0; i < 14; i += 2)
+	{
+		std::cout << (int16_t)(buffer[i] << 8 | buffer[i + 1]) << std::endl;
+	}
+
+	// Data is signed and converted to a float-point value in real-world units
+	// Acceleration is in m/s^2
+	// Angular velocity is in rad/s
+	imu_data.accel.x = (int16_t)(buffer[2] << 8 | buffer[3]) * ACCEL_SCALER;
+	imu_data.accel.y = (int16_t)(buffer[4] << 8 | buffer[5]) * ACCEL_SCALER;
+	imu_data.accel.z = (int16_t)(buffer[6] << 8 | buffer[7]) * ACCEL_SCALER;
+	imu_data.gyro.x = (int16_t)(buffer[8] << 8 | buffer[9]) * GYRO_SCALER;
+	imu_data.gyro.y = (int16_t)(buffer[10] << 8 | buffer[11]) * GYRO_SCALER;
+	imu_data.gyro.z = (int16_t)(buffer[12] << 8 | buffer[13]) * GYRO_SCALER;
+
+	return imu_data;
+}
+
+// Unfinished, do not use
+imu_data_t IMU_burst()
+{
 	imu_data_t imu_data;
 
 	// Define burst read buffer
@@ -159,22 +219,12 @@ imu_data_t IMU_read(){
 	cout << "Checksum:\t" << buffer[BURST_READ_CHECKSUM] << endl;
 
 	// Data is signed and converted to a float-point value in real-world units
-	imu_data.accel.x = accel_format((int16_t)buffer[BURST_READ_X_ACCL_OUT]);
-	imu_data.accel.y = accel_format((int16_t)buffer[BURST_READ_Y_ACCL_OUT]);
-	imu_data.accel.z = accel_format((int16_t)buffer[BURST_READ_Z_ACCL_OUT]);
-	imu_data.gyro.x = gyro_format((int16_t)buffer[BURST_READ_X_GYRO_OUT]);
-	imu_data.gyro.y = gyro_format((int16_t)buffer[BURST_READ_Y_GYRO_OUT]);
-	imu_data.gyro.z = gyro_format((int16_t)buffer[BURST_READ_Z_GYRO_OUT]);
+	imu_data.accel.x = (int16_t)buffer[BURST_READ_X_ACCL_OUT] * ACCEL_SCALER;
+	imu_data.accel.y = (int16_t)buffer[BURST_READ_Y_ACCL_OUT] * ACCEL_SCALER;
+	imu_data.accel.z = (int16_t)buffer[BURST_READ_Z_ACCL_OUT] * ACCEL_SCALER;
+	imu_data.gyro.x = (int16_t)buffer[BURST_READ_X_GYRO_OUT] * GYRO_SCALER;
+	imu_data.gyro.y = (int16_t)buffer[BURST_READ_Y_GYRO_OUT] * GYRO_SCALER;
+	imu_data.gyro.z = (int16_t)buffer[BURST_READ_Z_GYRO_OUT] * GYRO_SCALER;
 
 	return imu_data;
-}
-
-static inline float accel_format(int16_t data)
-{
-	return data * ACCEL_SCALER;
-}
-
-static inline float gyro_format(int16_t data)
-{
-	return data * GYRO_SCALER;
 }

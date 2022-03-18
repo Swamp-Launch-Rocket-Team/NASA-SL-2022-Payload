@@ -34,12 +34,11 @@ void IMU_calibrate();
 
 imu_data_t IMU_read();
 
+// Unfinished, do not use
+imu_data_t IMU_burst();
+
 uint16_t IMU_SPI_read(uint8_t addr);
 
 static void IMU_SPI_write(uint8_t addr, uint8_t data);
-
-static inline float accel_format(int16_t data);
-
-static inline float gyro_format(int16_t data);
 
 #endif

@@ -1,0 +1,14 @@
+main:
+	g++ main.cpp IMUlibrary_ADIS16470PCBZ.cpp \
+	-I/usr/local/include \
+	-L/usr/local/lib \
+	-lwiringPi \
+	-o main.out
+
+all: testIMU
+
+testIMU: testIMU.cpp ../IMUlibrary_ADIS16470PCBZ.cpp ../IMUlibrary_ADIS16470PCBZ.h
+	c++ -std=c++11 -g -o testIMU testIMU.cpp ../IMUlibrary_ADIS16470PCBZ.cpp -lwiringPi
+
+clean:
+	rm -f testIMU

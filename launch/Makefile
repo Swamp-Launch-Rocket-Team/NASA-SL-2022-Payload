@@ -1,9 +1,13 @@
 main:
-	g++ main.cpp IMUlibrary_ADIS16470PCBZ.cpp \
+	g++ main.cpp IMUlibrary_ADIS16470PCBZ.cpp CameraModule.cpp ArduCAM.cpp arducam_arch_raspberrypi.c \
 	-I/usr/local/include \
 	-L/usr/local/lib \
 	-lwiringPi \
+	-li2c \
+	-lpthread \
 	-o main.out
+
+
 
 all: testIMU
 

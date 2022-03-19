@@ -1,10 +1,10 @@
 #include <iostream>
 #include <chrono>
 #include <ctime> 
-#include <thread>
 #include <fstream>
 
 #include "IMUlibrary_ADIS16470PCBZ.h"
+#include "CameraModule.h"
 
 bool launchDetected() {
     imu_data_t data = IMU_read();
@@ -58,15 +58,19 @@ int main()
     //Variables
     bool launched = false;
     bool landed = false;
-    int numImages = 0;
+    int numImages = 1;
+    
     //
     while (!launched) {
         if (launchDetected())
+        {
+            setup("1600x1200");
             launched = true;
+        }
         
         writeIMUToFile();
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     while (!landed) {
@@ -75,11 +79,13 @@ int main()
 
         writeIMUToFile();
         
-        std::string command = "/home/pi/attempt4/Arduino/ArduCAM/examples/RaspberryPi/ov5642_capture -c" + std::to_string(numImages + 1) + ".jpg 1920x1080";
-        system(command.c_str());
+        std::string test = std::to_string(numImages) + ".jpg";
+        domain(0, test.c_str());
+        //std::string command = " -c " + std::to_string(numImages) + ".jpg 1600x1200";
+        //system(command.c_str());
         numImages++;
         
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
 
     //Put in transmission code

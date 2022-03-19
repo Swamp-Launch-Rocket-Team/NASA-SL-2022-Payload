@@ -7,7 +7,7 @@ using namespace std;
 #define DATA_READY 5
 #define SYNC 6
 
-#define CHANNEL 0
+#define CHANNEL 1
 #define BAUDRATE 488000 // Max SCLK is 1 MHz when using burst reads
 
 #define MSC_CTRL_ADDR 0x60

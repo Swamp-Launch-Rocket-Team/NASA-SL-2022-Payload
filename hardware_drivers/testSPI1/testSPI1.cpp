@@ -16,6 +16,7 @@ extern "C"{
 #include <stdlib.h>
 #include <time.h>
 #include <bcm2835.h>
+#include <cstdio>
 //#include "arducam_arch_raspberrypi.h"
 
 #define	SPI_ARDUCAM_SPEED	1000000
@@ -25,11 +26,16 @@ static int FD;
 
 bool wiring_init(void)
 {
-	wiringPiSetup(); //need this
+	printf("1");
+	//wiringPiSetup(); //need this
+	printf("2");
 	//int spi = wiringPiSPISetup(SPI_ARDUCAM, SPI_ARDUCAM_SPEED);
 	int spi = bcm2835_aux_spi_begin();
+	printf("3");
 	uint16_t clkdiv = bcm2835_aux_spi_CalcClockDivider(SPI_ARDUCAM_SPEED);
+	printf("4");
 	bcm2835_aux_spi_setClockDivider(clkdiv);
+	printf("5");
 	return spi != -1;
 }
 bool arducam_i2c_init(uint8_t sensor_addr)
@@ -48,7 +54,7 @@ void arducam_spi_write(uint8_t address, uint8_t value)
 	spiData [0] = address ;
 	spiData [1] = value ; 
 	//wiringPiSPIDataRW (SPI_ARDUCAM, spiData, 2) ;
-	bcm2835_aux_spi_transfern(spiData, 2);
+	bcm2835_aux_spi_writenb(&spiData[0], 2);
 }
 
 uint8_t arducam_spi_read(uint8_t address)
@@ -77,9 +83,13 @@ uint8_t arducam_spi_transfer(uint8_t data)
 }
 int main(void)
 {
+	printf("a");
 	wiring_init();
+	printf("b");
 	while(1)
 	{
+		printf("WHY");
 		arducam_spi_write(0, 0x69);
+		printf("send help");
 	}
 }
